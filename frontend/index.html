@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>追番网站</title>
+    <script src="https://unpkg.com/vue@3.3.4/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+        }
+        
+        .anime-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 2.5px dashed #4a90e2;
+            border-radius: 1.25rem;
+            box-shadow: 0 8px 32px rgba(74, 144, 226, 0.12);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        .anime-card::after {
+            content: '';
+            pointer-events: none;
+            position: absolute;
+            inset: 0;
+            border-radius: 1.25rem;
+            border: 2.5px solid transparent;
+            border-image: url('data:image/svg+xml;utf8,<svg width="100%25" height="100%25" xmlns="http://www.w3.org/2000/svg"><path d="M5,10 Q10,5 20,10 T40,10 T60,10 T80,10 T100,10" stroke="%234a90e2" stroke-width="3" fill="none"/></svg>') 30 stretch;
+            opacity: 0.7;
+            z-index: 2;
+        }
+        
+        .anime-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        
+        .nav-gradient {
+            background: linear-gradient(135deg, #0f3460 0%, #16213e 50%, #1a1a2e 100%);
+        }
+        
+        .btn-anime {
+            background: linear-gradient(45deg, #4a90e2, #357abd);
+            transition: all 0.3s ease;
+        }
+        
+        .btn-anime:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(74, 144, 226, 0.3);
+        }
+        
+        .status-badge {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .status-badge::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            transition: left 0.5s;
+        }
+        
+        .status-badge:hover::before {
+            left: 100%;
+        }
+        
+        .progress-bar {
+            background: linear-gradient(90deg, #4a90e2, #357abd);
+            box-shadow: 0 0 10px rgba(74, 144, 226, 0.5);
+        }
+        
+        .modal-bg {
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+        }
+        
+        .modal-content {
+            background: linear-gradient(135deg, #fff 0%, #f8f9ff 100%);
+            border: 2px solid #4a90e2;
+            box-shadow: 0 20px 60px rgba(74, 144, 226, 0.3);
+        }
+        
+        .weekday-btn {
+            background: linear-gradient(45deg, #4a90e2, #357abd);
+            color: white;
+            transition: all 0.3s ease;
+        }
+        
+        .weekday-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 10px 20px rgba(74, 144, 226, 0.3);
+        }
+        
+        .weekday-btn.active {
+            background: linear-gradient(45deg, #4a90e2, #357abd);
+            transform: scale(1.1);
+        }
+        
+        .today-update {
+            background: linear-gradient(135deg, #4a90e2 0%, #357abd 50%, #2c5aa0 100%);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+        
+        .floating-hearts {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+        
+        .heart {
+            position: absolute;
+            color: rgba(74, 144, 226, 0.3);
+            animation: float 6s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(180deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div id="app">
+        <!-- 导航栏 -->
+        <nav class="nav-gradient text-white shadow-lg relative z-10">
+            <div class="max-w-7xl mx-auto px-4">
+                <div class="flex justify-between items-center py-4">
+                    <h1 @click="goHome" class="text-3xl font-bold cursor-pointer hover:text-blue-200 transition-colors flex items-center">
+                        <i class="fas fa-heart text-blue-400 mr-3 animate-pulse"></i>
+                        追番网站
+                    </h1>
+                    <div class="space-x-4">
+                        <button @click="currentView = 'list'" 
+                                :class="['px-6 py-3 rounded-full transition-all duration-300 font-medium', 
+                                         currentView === 'list' ? 'btn-anime text-white shadow-lg' : 'bg-white bg-opacity-20 hover:bg-opacity-30 text-white']">
+                            <i class="fas fa-list mr-2"></i>追番列表
+                        </button>
+                        <button @click="currentView = 'admin'" 
+                                :class="['px-6 py-3 rounded-full transition-all duration-300 font-medium', 
+                                         currentView === 'admin' ? 'btn-anime text-white shadow-lg' : 'bg-white bg-opacity-20 hover:bg-opacity-30 text-white']">
+                            <i class="fas fa-cog mr-2"></i>管理后台
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- 主要内容 -->
+        <main class="max-w-7xl mx-auto px-4 py-8">
+                        <!-- 追番列表页面 -->
+            <div v-if="currentView === 'list'" class="space-y-6">
+                <!-- 今日更新提示 -->
+                <div v-if="todayUpdates.length > 0" class="today-update text-white rounded-2xl p-6 mb-8 shadow-2xl">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <div class="bg-white bg-opacity-20 rounded-full p-4 mr-4">
+                                <i class="fas fa-star text-3xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-2xl font-bold mb-1">今日更新 ({{ todayUpdates.length }}部)</h3>
+                                <p class="text-white text-lg opacity-90">✨ 今天有新的动漫更新哦！</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-5xl font-bold mb-1">{{ todayUpdates.length }}</div>
+                            <div class="text-white text-lg opacity-90">部动漫</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 周一到周日导航按钮 -->
+                <div class="bg-white rounded-2xl shadow-xl p-6 mb-8">
+                    <h3 class="text-xl font-bold text-gray-800 mb-6 flex items-center">
+                        <i class="fas fa-calendar-alt text-blue-500 mr-3"></i>
+                        按更新日查看
+                    </h3>
+                    <div class="grid grid-cols-7 gap-3">
+                        <button v-for="day in weekDays" :key="day.value" 
+                                @click="selectDay(day.value)"
+                                :class="['weekday-btn px-4 py-4 rounded-xl text-sm font-medium transition-all duration-300', 
+                                         selectedDay === day.value ? 'active' : '']">
+                            <div class="text-center">
+                                <div class="font-bold text-lg mb-1">{{ day.label }}</div>
+                                <div class="text-xs opacity-75">{{ getDayCount(day.value) }}部</div>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 当前选中日期的动漫列表 -->
+                <div v-if="selectedDay" class="space-y-4">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-2xl font-bold text-gray-800">
+                            {{ getDayLabel(selectedDay) }} 更新的动漫
+                            <span class="text-lg font-normal text-gray-600">({{ getDayAnimes(selectedDay).length }}部)</span>
+                        </h2>
+                                                    <div class="flex space-x-2">
+                                <select v-model="platformFilter" class="px-3 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm">
+                                    <option value="">全部平台</option>
+                                    <option value="腾讯视频">腾讯视频</option>
+                                    <option value="爱奇艺">爱奇艺</option>
+                                    <option value="哔哩哔哩">哔哩哔哩</option>
+                                    <option value="优酷">优酷</option>
+                                    <option value="百度云盘">百度云盘</option>
+                                    <option value="阿里云盘">阿里云盘</option>
+                                    <option value="AGE动漫">AGE动漫</option>
+                                </select>
+                                <select v-model="statusFilter" class="px-3 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm">
+                                    <option value="">全部状态</option>
+                                    <option value="追番中">追番中</option>
+                                    <option value="已完结">已完结</option>
+                                    <option value="暂停">暂停</option>
+                                </select>
+                                <input v-model="searchQuery" type="text" placeholder="搜索..." 
+                                       class="px-3 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm">
+                            </div>
+                    </div>
+
+                    <!-- 动漫卡片网格 -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div v-for="anime in filteredDayAnimes" :key="anime.id" 
+                             class="anime-card rounded-2xl shadow-xl p-6 relative overflow-hidden">
+                            <div class="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-pink-400 to-purple-500 opacity-10 rounded-bl-full"></div>
+                            <div class="flex justify-between items-start mb-4 relative z-10">
+                                <h3 class="text-xl font-bold text-gray-800">{{ anime.title }}</h3>
+                                <span :class="getStatusClass(anime.status)" class="status-badge px-3 py-1 rounded-full text-xs font-medium">
+                                    {{ anime.status }}
+                                </span>
+                            </div>
+                            
+                            <div class="space-y-3">
+                                <div class="flex items-center text-gray-600">
+                                    <i class="fas fa-film mr-2 text-blue-500"></i>
+                                    <span>第 {{ anime.current_episode }} 集</span>
+                                    <span v-if="anime.total_episodes" class="text-gray-400 ml-1">
+                                        / {{ anime.total_episodes }} 集
+                                    </span>
+                                </div>
+                                
+                                <div class="flex items-center text-gray-600">
+                                    <i class="fas fa-globe mr-2 text-green-500"></i>
+                                    <span>{{ anime.platform }}</span>
+                                    <a v-if="anime.platform_url" :href="anime.platform_url" target="_blank" 
+                                       class="ml-2 text-blue-500 hover:text-blue-700 transition-colors">
+                                        <i class="fas fa-external-link-alt text-xs"></i>
+                                    </a>
+                                </div>
+                                
+                                <div v-if="anime.update_day" class="flex items-center text-gray-600">
+                                    <i class="fas fa-clock mr-2 text-orange-500"></i>
+                                    <span>{{ anime.update_day }} 更新</span>
+                                    <span v-if="isTodayUpdate(anime.update_day)" class="ml-2 px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full font-medium">
+                                        今日更新
+                                    </span>
+                                </div>
+                                
+                                <div v-if="anime.notes" class="text-gray-600 text-sm">
+                                    <i class="fas fa-comment mr-2 text-purple-500"></i>
+                                    {{ anime.notes }}
+                                </div>
+                                
+                                <!-- 进度条 -->
+                                <div v-if="anime.total_episodes" class="mt-4">
+                                    <div class="flex justify-between text-sm text-gray-600 mb-2">
+                                        <span class="font-medium">观看进度</span>
+                                        <span class="font-bold text-blue-600">{{ Math.round((anime.current_episode / anime.total_episodes) * 100) }}%</span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                                        <div class="progress-bar h-3 rounded-full transition-all duration-500"
+                                             :style="{ width: (anime.current_episode / anime.total_episodes) * 100 + '%' }"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-4 pt-4 border-t border-gray-200">
+                                <div class="text-xs text-gray-500">
+                                    更新于: {{ formatDate(anime.updated_at) }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 空状态 -->
+                    <div v-if="filteredDayAnimes.length === 0" class="text-center py-12">
+                        <i class="fas fa-sad-tear text-6xl text-gray-300 mb-4"></i>
+                        <p class="text-gray-500 text-lg">{{ getDayLabel(selectedDay) }} 没有动漫更新</p>
+                        <p class="text-gray-400 text-sm mt-2">换个时间再来看看吧～</p>
+                    </div>
+                </div>
+
+                <!-- 全部动漫列表（当没有选择特定日期时显示） -->
+                <div v-else class="space-y-4">
+                    <div class="flex justify-between items-center">
+                        <h2 class="text-3xl font-bold text-gray-800">全部追番列表</h2>
+                        <div class="flex space-x-2">
+                            <select v-model="updateDayFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent">
+                                <option value="">全部更新日</option>
+                                <option value="周一">周一</option>
+                                <option value="周二">周二</option>
+                                <option value="周三">周三</option>
+                                <option value="周四">周四</option>
+                                <option value="周五">周五</option>
+                                <option value="周六">周六</option>
+                                <option value="周日">周日</option>
+                            </select>
+                            <select v-model="platformFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent">
+                                <option value="">全部平台</option>
+                                <option value="腾讯视频">腾讯视频</option>
+                                <option value="爱奇艺">爱奇艺</option>
+                                <option value="哔哩哔哩">哔哩哔哩</option>
+                                <option value="优酷">优酷</option>
+                                <option value="百度云盘">百度云盘</option>
+                                <option value="阿里云盘">阿里云盘</option>
+                                <option value="AGE动漫">AGE动漫</option>
+                            </select>
+                            <select v-model="statusFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent">
+                                <option value="">全部状态</option>
+                                <option value="追番中">追番中</option>
+                                <option value="已完结">已完结</option>
+                                <option value="暂停">暂停</option>
+                            </select>
+                            <input v-model="searchQuery" type="text" placeholder="搜索动漫..." 
+                                   class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent">
+                        </div>
+                    </div>
+
+                    <!-- 追番卡片网格 -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div v-for="anime in filteredAnimes" :key="anime.id" 
+                             class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-6">
+                            <div class="flex justify-between items-start mb-4">
+                                <h3 class="text-xl font-semibold text-gray-800">{{ anime.title }}</h3>
+                                <span :class="getStatusClass(anime.status)" class="px-2 py-1 rounded-full text-xs font-medium">
+                                    {{ anime.status }}
+                                </span>
+                            </div>
+                            
+                            <div class="space-y-3">
+                                <div class="flex items-center text-gray-600">
+                                    <i class="fas fa-film mr-2 text-blue-500"></i>
+                                    <span>第 {{ anime.current_episode }} 集</span>
+                                    <span v-if="anime.total_episodes" class="text-gray-400 ml-1">
+                                        / {{ anime.total_episodes }} 集
+                                    </span>
+                                </div>
+                                
+                                <div class="flex items-center text-gray-600">
+                                    <i class="fas fa-globe mr-2 text-green-500"></i>
+                                    <span>{{ anime.platform }}</span>
+                                    <a v-if="anime.platform_url" :href="anime.platform_url" target="_blank" 
+                                       class="ml-2 text-blue-500 hover:text-blue-700 transition-colors">
+                                        <i class="fas fa-external-link-alt text-xs"></i>
+                                    </a>
+                                </div>
+                                
+                                <div v-if="anime.update_day" class="flex items-center text-gray-600">
+                                    <i class="fas fa-clock mr-2 text-orange-500"></i>
+                                    <span>{{ anime.update_day }} 更新</span>
+                                    <span v-if="isTodayUpdate(anime.update_day)" class="ml-2 px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full font-medium">
+                                        今日更新
+                                    </span>
+                                </div>
+                                
+                                <div v-if="anime.notes" class="text-gray-600 text-sm">
+                                    <i class="fas fa-comment mr-2 text-purple-500"></i>
+                                    {{ anime.notes }}
+                                </div>
+                                
+                                <!-- 进度条 -->
+                                <div v-if="anime.total_episodes" class="mt-4">
+                                    <div class="flex justify-between text-sm text-gray-600 mb-2">
+                                        <span class="font-medium">观看进度</span>
+                                        <span class="font-bold text-blue-600">{{ Math.round((anime.current_episode / anime.total_episodes) * 100) }}%</span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                                        <div class="progress-bar h-3 rounded-full transition-all duration-500"
+                                             :style="{ width: (anime.current_episode / anime.total_episodes) * 100 + '%' }"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-4 pt-4 border-t border-gray-200">
+                                <div class="text-xs text-gray-500">
+                                    更新于: {{ formatDate(anime.updated_at) }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 空状态 -->
+                    <div v-if="filteredAnimes.length === 0" class="text-center py-12">
+                        <i class="fas fa-search text-6xl text-gray-300 mb-4"></i>
+                        <p class="text-gray-500 text-lg">没有找到匹配的动漫</p>
+                        <p class="text-gray-400 text-sm mt-2">试试调整搜索条件吧～</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 管理后台页面 -->
+            <div v-if="currentView === 'admin'" class="flex h-screen bg-gray-100">
+                <!-- 左侧菜单栏 -->
+                <div class="w-64 bg-white shadow-lg">
+                    <div class="p-6 border-b border-gray-200">
+                        <h2 class="text-xl font-bold text-gray-800">管理后台</h2>
+                    </div>
+                    
+                    <nav class="mt-6">
+                        <div class="px-4 space-y-2">
+                            <button @click="adminView = 'manage'" 
+                                    :class="['w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors', 
+                                             adminView === 'manage' 
+                                                 ? 'bg-blue-100 text-blue-700 border-r-2 border-blue-500' 
+                                                 : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900']">
+                                <i class="fas fa-magic mr-3"></i>
+                                番剧管理
+                            </button>
+                            <button @click="adminView = 'list'" 
+                                    :class="['w-full flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors', 
+                                             adminView === 'list' 
+                                                 ? 'bg-blue-100 text-blue-700 border-r-2 border-blue-500' 
+                                                 : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900']">
+                                <i class="fas fa-th-large mr-3"></i>
+                                番剧列表
+                            </button>
+                        </div>
+                    </nav>
+                </div>
+
+                <!-- 右侧内容区域 -->
+                <div class="flex-1 overflow-auto">
+                    <!-- 番剧管理页面 -->
+                    <div v-if="adminView === 'manage'" class="p-8">
+                        <div class="mb-6">
+                            <h3 class="text-2xl font-bold text-gray-800">添加新动漫</h3>
+                            <p class="text-gray-600 mt-1">在这里添加新的动漫信息</p>
+                        </div>
+                        
+                        <!-- 添加表单 -->
+                        <div class="bg-white rounded-lg shadow-md p-6">
+                            <form @submit.prevent="saveAnime" class="space-y-6">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">动漫名称 *</label>
+                                        <input v-model="form.title" type="text" required
+                                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent">
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">播放平台 *</label>
+                                        <select v-model="form.platform" required
+                                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent">
+                                            <option value="">请选择播放平台</option>
+                                            <option value="腾讯视频">腾讯视频</option>
+                                            <option value="爱奇艺">爱奇艺</option>
+                                            <option value="哔哩哔哩">哔哩哔哩</option>
+                                            <option value="优酷">优酷</option>
+                                            <option value="百度云盘">百度云盘</option>
+                                            <option value="阿里云盘">阿里云盘</option>
+                                            <option value="AGE动漫">AGE动漫</option>
+                                            <option value="其他">其他</option>
+                                        </select>
+                                        <input v-if="form.platform === '其他'" v-model="form.customPlatform" type="text" placeholder="请输入其他平台名称"
+                                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent mt-2">
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">平台链接地址</label>
+                                        <input v-model="form.platform_url" type="url" placeholder="https://example.com"
+                                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent">
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">当前集数 *</label>
+                                        <input v-model.number="form.current_episode" type="number" min="0" required
+                                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent">
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">总集数</label>
+                                        <input v-model.number="form.total_episodes" type="number" min="0"
+                                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent">
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">状态</label>
+                                        <select v-model="form.status"
+                                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent">
+                                            <option value="追番中">追番中</option>
+                                            <option value="已完结">已完结</option>
+                                            <option value="暂停">暂停</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">更新日期</label>
+                                        <select v-model="form.update_day"
+                                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent">
+                                            <option value="">不设置</option>
+                                            <option value="周一">周一</option>
+                                            <option value="周二">周二</option>
+                                            <option value="周三">周三</option>
+                                            <option value="周四">周四</option>
+                                            <option value="周五">周五</option>
+                                            <option value="周六">周六</option>
+                                            <option value="周日">周日</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">备注</label>
+                                    <textarea v-model="form.notes" rows="4"
+                                              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"></textarea>
+                                </div>
+                                
+                                <div class="flex space-x-4 pt-4 border-t border-gray-200">
+                                    <button type="submit" 
+                                            class="px-8 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium">
+                                        <i class="fas fa-plus mr-2"></i>
+                                        添加动漫
+                                    </button>
+                                    <button type="button" @click="resetForm"
+                                            class="px-8 py-3 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors font-medium">
+                                        <i class="fas fa-redo mr-2"></i>
+                                        重置表单
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- 番剧列表页面 -->
+                    <div v-if="adminView === 'list'" class="p-8">
+                        <div class="mb-6">
+                            <h3 class="text-2xl font-bold text-gray-800">番剧列表</h3>
+                            <p class="text-gray-600 mt-1">管理所有动漫信息</p>
+                        </div>
+
+                        <!-- 筛选和搜索 -->
+                        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                            <div class="flex flex-wrap gap-4">
+                                <div class="flex-1 min-w-48">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">搜索动漫</label>
+                                    <input v-model="adminSearchQuery" type="text" placeholder="输入动漫名称、平台或备注..." 
+                                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent">
+                                </div>
+                                <div class="w-48">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">状态筛选</label>
+                                    <select v-model="adminStatusFilter"
+                                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent">
+                                        <option value="">全部状态</option>
+                                        <option value="追番中">追番中</option>
+                                        <option value="已完结">已完结</option>
+                                        <option value="暂停">暂停</option>
+                                    </select>
+                                </div>
+                                <div class="w-48">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">平台筛选</label>
+                                    <select v-model="adminPlatformFilter"
+                                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent">
+                                        <option value="">全部平台</option>
+                                        <option value="腾讯视频">腾讯视频</option>
+                                        <option value="爱奇艺">爱奇艺</option>
+                                        <option value="哔哩哔哩">哔哩哔哩</option>
+                                        <option value="优酷">优酷</option>
+                                        <option value="百度云盘">百度云盘</option>
+                                        <option value="阿里云盘">阿里云盘</option>
+                                        <option value="AGE动漫">AGE动漫</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 动漫列表表格 -->
+                        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                                <h4 class="text-lg font-semibold text-gray-800">动漫列表 ({{ filteredAdminAnimes.length }}部)</h4>
+                                <div class="text-sm text-gray-500">
+                                    共 {{ animes.length }} 部动漫
+                                </div>
+                            </div>
+                            
+                            <div class="overflow-x-auto">
+                                <table class="w-full">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">动漫名称</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">平台</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">进度</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">更新日</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        <tr v-for="anime in filteredAdminAnimes" :key="anime.id" class="hover:bg-gray-50">
+                                            <td class="px-6 py-4">
+                                                <div class="text-sm font-medium text-gray-900">{{ anime.title }}</div>
+                                                <div v-if="anime.notes" class="text-sm text-gray-500 mt-1">{{ anime.notes }}</div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ anime.platform }}</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                {{ anime.current_episode }}{{ anime.total_episodes ? '/' + anime.total_episodes : '' }}
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                <span v-if="anime.update_day" :class="isTodayUpdate(anime.update_day) ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'" class="px-2 py-1 rounded-full text-xs font-medium">
+                                                    {{ anime.update_day }}
+                                                </span>
+                                                <span v-else class="text-gray-400">-</span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <span :class="getStatusClass(anime.status)" class="px-2 py-1 rounded-full text-xs font-medium">
+                                                    {{ anime.status }}
+                                                </span>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                <button @click="editAnime(anime)" 
+                                                        class="text-blue-600 hover:text-blue-900 mr-3 p-1 rounded hover:bg-blue-50">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                                <button @click="deleteAnime(anime.id)" 
+                                                        class="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50">
+                                                    <i class="fas fa-trash-alt"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            <!-- 空状态 -->
+                            <div v-if="filteredAdminAnimes.length === 0" class="text-center py-12">
+                                <i class="fas fa-folder-open text-6xl text-gray-300 mb-4"></i>
+                                <p class="text-gray-500 text-lg">没有找到匹配的动漫</p>
+                                <p class="text-gray-400 text-sm mt-2">快去添加一些动漫吧～</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 编辑弹窗 -->
+    <div id="editModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 hidden" @click.self="closeEditModal">
+        <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b border-gray-200">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-2xl font-bold text-gray-800">编辑动漫</h3>
+                    <button @click="closeEditModal" class="text-gray-400 hover:text-gray-600 transition-colors p-2">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="p-6">
+                <form @submit.prevent="updateAnime" class="space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">动漫名称 *</label>
+                            <input v-model="editForm.title" type="text" required
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">播放平台 *</label>
+                            <select v-model="editForm.platform" required
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                                <option value="">请选择播放平台</option>
+                                <option value="腾讯视频">腾讯视频</option>
+                                <option value="爱奇艺">爱奇艺</option>
+                                <option value="哔哩哔哩">哔哩哔哩</option>
+                                <option value="优酷">优酷</option>
+                                <option value="百度云盘">百度云盘</option>
+                                <option value="阿里云盘">阿里云盘</option>
+                                <option value="AGE动漫">AGE动漫</option>
+                                <option value="其他">其他</option>
+                            </select>
+                            <input v-if="editForm.platform === '其他'" v-model="editForm.customPlatform" type="text" placeholder="请输入其他平台名称"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent mt-2">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">平台链接地址</label>
+                            <input v-model="editForm.platform_url" type="url" placeholder="https://example.com"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">当前集数 *</label>
+                            <input v-model.number="editForm.current_episode" type="number" min="0" required
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">总集数</label>
+                            <input v-model.number="editForm.total_episodes" type="number" min="0"
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">状态</label>
+                            <select v-model="editForm.status"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                                <option value="追番中">追番中</option>
+                                <option value="已完结">已完结</option>
+                                <option value="暂停">暂停</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">更新日期</label>
+                            <select v-model="editForm.update_day"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                                <option value="">不设置</option>
+                                <option value="周一">周一</option>
+                                <option value="周二">周二</option>
+                                <option value="周三">周三</option>
+                                <option value="周四">周四</option>
+                                <option value="周五">周五</option>
+                                <option value="周六">周六</option>
+                                <option value="周日">周日</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">备注</label>
+                        <textarea v-model="editForm.notes" rows="4"
+                                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"></textarea>
+                    </div>
+                    
+                    <div class="flex space-x-4 pt-4 border-t border-gray-200">
+                        <button type="submit" 
+                                class="px-8 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium">
+                            <i class="fas fa-save mr-2"></i>
+                            更新动漫
+                        </button>
+                        <button type="button" @click="closeEditModal"
+                                class="px-8 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors font-medium">
+                            <i class="fas fa-times mr-2"></i>
+                            取消
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        // 确保Vue应用正确初始化
+        console.log('页面加载完成');
+        if (typeof Vue !== 'undefined') {
+            console.log('Vue.js已加载');
+        } else {
+            console.error('Vue.js未加载');
+        }
+    </script>
+</body>
+</html> 
